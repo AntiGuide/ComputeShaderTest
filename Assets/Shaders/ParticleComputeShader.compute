@@ -1,41 +1,46 @@
 ﻿#pragma kernel UpdateParticlesGravity
 #pragma kernel UpdateParticlesNoise
+#pragma kernel GenerateLineIndices
 
 #include "SimplexNoise3D.hlsl"
 
-StructuredBuffer<float3> _InPositions;
+StructuredBuffer<float3>   _InPositions;
 RWStructuredBuffer<float3> _OutPositions;
 
 RWStructuredBuffer<float3> _Velocities;
 
-RWStructuredBuffer<uint> lineIndices;
-uint lineIndicesWriteIndex;
+struct LineEntry
+{
+    float3 posA;
+    float3 posB;
+};
+
+RWStructuredBuffer<LineEntry> _Lines;
 
 uint _ParticleCount;
 float _Dt;
 
-[numthreads(8, 1, 1)]
-void UpdateParticlesNoise(uint3 id : SV_DispatchThreadID)
+
+[numthreads(8,1,1)]
+void UpdateParticlesNoise (uint3 id : SV_DispatchThreadID)
 {
     float3 currentPos = _InPositions[id.x];
-    float3 noise = float3(  snoise(currentPos * 0.1 + float3( -1.6424,    6.23414,    -4.645233   )),
-                            snoise(currentPos * 0.1 + float3( -5.4255,    5.53442,    2.53244     )),
-                            snoise(currentPos * 0.1 + float3( 8.53241,    -0.52344,   6.32412     )));
-    _Velocities[id.x] = noise;
-    _OutPositions[id.x] = _InPositions[id.x] + _Velocities[id.x] * _Dt;
+    float3 noise = float3(snoise(currentPos * 0.2 + float3(-1.6424, 6.23414,-4.64523)),
+                          snoise(currentPos * 0.2 + float3(-5.4255, 5.53442, 2.53244)),
+                          snoise(currentPos * 0.2 + float3( 8.5324,-0.52344, 6.32412)));
+    _OutPositions[id.x] = _InPositions[id.x] + noise * _Dt;
 }
 
-
-[numthreads(8, 1, 1)]
-void UpdateParticlesGravity(uint3 id : SV_DispatchThreadID)
+[numthreads(8,1,1)]
+void UpdateParticlesGravity (uint3 id : SV_DispatchThreadID)
 {
     float3 currentPos = _InPositions[id.x];
     for (uint j = 0; j < _ParticleCount; ++j)
     {
         const float3 otherPos = _InPositions[j];
-        float3 fromTo = otherPos - currentPos;
+        float3  fromTo = otherPos - currentPos;
         const float sqrMagnitude = dot(fromTo, fromTo);
-        if (sqrMagnitude > 0.01)
+        if(sqrMagnitude > 0.01)
         {
             const float magnitude = sqrt(sqrMagnitude);
             const float oneOverMagnitude = 1.0 / magnitude;
@@ -43,11 +48,39 @@ void UpdateParticlesGravity(uint3 id : SV_DispatchThreadID)
             _Velocities[id.x] += (fromTo / sqrMagnitude) * _Dt;
         }
     }
-        
     _OutPositions[id.x] = _InPositions[id.x] + _Velocities[id.x] * _Dt;
 }
 
 [numthreads(8,1,1)]
-GenerateLineIndices(){
-
+void GenerateLineIndices (uint3 id : SV_DispatchThreadID)
+{
+    float3 currentPos = _InPositions[id.x];
+    float closestDistance = 10000;
+    float3 closestPos = float3(0,0,0);
+    for (uint j = id.x+1; j < _ParticleCount; ++j)
+    {
+        const float3 otherPos = _InPositions[j];
+        float3  fromTo = otherPos - currentPos;
+        const float sqrMagnitude = dot(fromTo, fromTo);
+        if(sqrMagnitude < closestDistance)
+        {
+            closestDistance = sqrMagnitude;
+            closestPos = otherPos;
+        }
+    }
+    if(closestDistance < 4*4)
+    {
+        LineEntry lineEntry;
+        lineEntry.posA = currentPos;
+        lineEntry.posB = closestPos;
+        _Lines[id.x] = lineEntry;
+    }
+    else
+    {
+        LineEntry lineEntry;
+        lineEntry.posA = float3(0,0,0);
+        lineEntry.posB = float3(0,0,0);
+        _Lines[id.x] = lineEntry;
+    }
+    
 }
