@@ -239,7 +239,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   particleRenderer: {fileID: 1223278225}
   computeShader: {fileID: 7200000, guid: eb6e9c320e1c82a4897a4222d9dc333a, type: 3}
-  maxParticleCount: 1000
+  maxParticleCount: 100
   iterationCount: 10
 --- !u!4 &1223278227
 Transform:

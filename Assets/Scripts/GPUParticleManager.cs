@@ -29,7 +29,7 @@ public class GPUParticleManager : MonoBehaviour {
         }
         _positionBuffers[0].SetData(particles);
 
-        _updateKernelId = computeShader.FindKernel("UpdateParticles");
+        _updateKernelId = computeShader.FindKernel("UpdateParticlesNoise");
         computeShader.SetBuffer(_updateKernelId, "_Velocities", _velocitiesBuffer);
     }
 

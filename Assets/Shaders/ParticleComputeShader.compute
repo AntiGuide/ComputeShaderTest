@@ -1,15 +1,33 @@
-﻿#pragma kernel UpdateParticles
+﻿#pragma kernel UpdateParticlesGravity
+#pragma kernel UpdateParticlesNoise
+
+#include "SimplexNoise3D.hlsl"
 
 StructuredBuffer<float3> _InPositions;
 RWStructuredBuffer<float3> _OutPositions;
 
 RWStructuredBuffer<float3> _Velocities;
 
+RWStructuredBuffer<uint> lineIndices;
+uint lineIndicesWriteIndex;
+
 uint _ParticleCount;
 float _Dt;
 
 [numthreads(8, 1, 1)]
-void UpdateParticles(uint3 id : SV_DispatchThreadID)
+void UpdateParticlesNoise(uint3 id : SV_DispatchThreadID)
+{
+    float3 currentPos = _InPositions[id.x];
+    float3 noise = float3(  snoise(currentPos * 0.1 + float3( -1.6424,    6.23414,    -4.645233   )),
+                            snoise(currentPos * 0.1 + float3( -5.4255,    5.53442,    2.53244     )),
+                            snoise(currentPos * 0.1 + float3( 8.53241,    -0.52344,   6.32412     )));
+    _Velocities[id.x] = noise;
+    _OutPositions[id.x] = _InPositions[id.x] + _Velocities[id.x] * _Dt;
+}
+
+
+[numthreads(8, 1, 1)]
+void UpdateParticlesGravity(uint3 id : SV_DispatchThreadID)
 {
     float3 currentPos = _InPositions[id.x];
     for (uint j = 0; j < _ParticleCount; ++j)
@@ -27,4 +45,9 @@ void UpdateParticles(uint3 id : SV_DispatchThreadID)
     }
         
     _OutPositions[id.x] = _InPositions[id.x] + _Velocities[id.x] * _Dt;
+}
+
+[numthreads(8,1,1)]
+GenerateLineIndices(){
+
 }
